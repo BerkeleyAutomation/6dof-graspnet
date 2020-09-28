@@ -43,8 +43,8 @@ class Object(object):
             print("Warning: Will do a concatenation")
             self.mesh = trimesh.util.concatenate(self.mesh)
 
-        self.collision_manager = trimesh.collision.CollisionManager()
-        self.collision_manager.add_object('object', self.mesh)
+#        self.collision_manager = trimesh.collision.CollisionManager()
+#        self.collision_manager.add_object('object', self.mesh)
 
     def rescale(self, scale=1.0):
         """Set scale of object mesh.

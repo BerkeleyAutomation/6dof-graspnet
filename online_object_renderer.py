@@ -121,11 +121,21 @@ class OnlineObjectRenderer:
         self._scene = pyrender.Scene()
         camera = pyrender.PerspectiveCamera(yfov=self._fov, aspectRatio=1.0, znear=0.001) # do not change aspect ratio
         camera_pose = tra.euler_matrix(np.pi, 0, 0)
+        print(camera_pose)
 
         self._scene.add(camera, pose=camera_pose, name='camera')
 
-        #light = pyrender.SpotLight(color=np.ones(4), intensity=3., innerConeAngle=np.pi/16, outerConeAngle=np.pi/6.0)
-        #self._scene.add(light, pose=camera_pose, name='light')
+        plane = trimesh.creation.box(extents=(2, 2, 0.02))
+        plane_pose = np.asarray([
+            [1.0, 0.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0, 0.0],
+            [0.0, 0.0, 1.0, -1 * 0.02 / 2],
+            [0.0, 0.0, 0.0, 1.0]
+        ])
+        self._scene.add(pyrender.Mesh.from_trimesh(plane), pose=plane_pose)
+
+#        light = pyrender.SpotLight(color=np.ones(4), intensity=3., innerConeAngle=np.pi/16, outerConeAngle=np.pi/6.0)
+#        self._scene.add(light, pose=camera_pose, name='light')
 
         self.renderer = pyrender.OffscreenRenderer(400, 400)
 
@@ -209,6 +219,14 @@ class OnlineObjectRenderer:
             pc = None
 
         return color, depth, pc, transferred_pose
+
+    def view(self, pose):
+        if self._current_context is None:
+            raise ValueError('invoke change_object first')
+
+        self._scene.set_pose(self._current_context['node'], pose)
+
+        pyrender.Viewer(self._scene, shadows=True)
 
     def render_canonical_pc(self, poses):
         all_pcs = []
