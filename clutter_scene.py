@@ -2,6 +2,26 @@ import numpy as np
 import trimesh
 import pyrender
 
+def to_pointcloud(depth, fov):
+    fy = fx = 0.5 / np.tan(fov * 0.5) # aspectRatio is one.
+    height = depth.shape[0]
+    width = depth.shape[1]
+
+    mask = np.where(depth > 0)
+    
+    x = mask[1]
+    y = mask[0]
+    
+    normalized_x = (x.astype(np.float32) - width * 0.5) / width
+    normalized_y = (y.astype(np.float32) - height * 0.5) / height
+    
+    world_x = normalized_x * depth[y, x] / fx
+    world_y = normalized_y * depth[y, x] / fy
+    world_z = depth[y, x]
+    ones = np.ones(world_z.shape[0], dtype=np.float32)
+
+    return np.vstack((world_x, world_y, world_z, ones)).T
+
 plane_m = trimesh.load('objects/plane_5X300X300.obj')
 w_box_m = trimesh.load('objects/box_40X90X130.obj')
 s_box_m = trimesh.load('objects/box_50X60X140.obj')
@@ -12,7 +32,7 @@ w_box = pyrender.Mesh.from_trimesh(w_box_m, material=pyrender.MetallicRoughnessM
 s_box = pyrender.Mesh.from_trimesh(s_box_m, material=pyrender.MetallicRoughnessMaterial(baseColorFactor=(0, 0, 255, 255)))
 cube = pyrender.Mesh.from_trimesh(cube_m, material=pyrender.MetallicRoughnessMaterial(baseColorFactor=(0, 255, 255, 0)))
 cylinder = pyrender.Mesh.from_trimesh(cylinder_m, material=pyrender.MetallicRoughnessMaterial(baseColorFactor=(255, 0, 0, 0)))
-scene = pyrender.Scene(ambient_light=np.array([0.02, 0.02, 0.02, 1.0]))
+scene = pyrender.Scene(ambient_light=np.array([0.2, 0.2, 0.2, 1.0]))
 # import ipdb; ipdb.set_trace()
 scene.add(plane, pose=plane_m.compute_stable_poses()[0][1])
 s = np.sqrt(2)/2
@@ -37,7 +57,9 @@ s_box_pose[0, 3] = 50  # inside
 s_box_pose[1, 3] = -30  # right
 scene.add(s_box, pose=s_box_pose)
 
-camera = pyrender.PerspectiveCamera(yfov=np.pi / 3.0)
+FOV = np.pi / 3.0
+camera = pyrender.PerspectiveCamera(yfov=FOV)
+#camera = pyrender.PerspectiveCamera(yfov=np.pi / 6.0, aspectRatio=1.0, znear=0.001)
 b = 0.5
 c = np.sqrt(3)/2.0
 camera_pose = np.array([
@@ -46,16 +68,30 @@ camera_pose = np.array([
        [0.0,  c,   b,   200.35],
        [0.0,  0.0, 0.0, 1.0],
     ])
+"""
+camera_pose = np.array([
+       [0.0, -b,   c,   400.3],
+       [1.0,  0.0, 0.0, 0.0],
+       [0.0,  c,   b,   400.35],
+       [0.0,  0.0, 0.0, 1.0],
+    ])
+"""
 scene.add(camera, pose=camera_pose)
-# pyrender.Viewer(scene)
+#pyrender.Viewer(scene, shadows=True)
+#exit(0)
 
 r = pyrender.OffscreenRenderer(viewport_width=640*2, viewport_height=480*2)
 color, depth = r.render(scene)
 
+pc = to_pointcloud(depth, FOV)
+np.savez_compressed('scene_output', color=color, depth=depth, pc=pc)
+
+"""
 import matplotlib.pyplot as plt
 plt.figure()
 plt.imshow(color)
 plt.show()
+"""
 # light = pyrender.SpotLight(color=np.ones(3), intensity=3.0,
 #                                innerConeAngle=np.pi/16.0)
 # scene.add(light, pose=camera_pose)
